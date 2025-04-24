@@ -1,0 +1,22 @@
+[package]
+name = "app"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+app-errors.workspace = true
+actix-web.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+common.workspace = true
+tracing.workspace = true
+tracing-actix-web.workspace = true
+tracing-subscriber.workspace = true
+sea-orm.workspace = true
+log.workspace = true
+validator.workspace = true
+entity.workspace = true
+chrono.workspace = true
+futures-util.workspace = true
+messaging.workspace = true
+tokio.workspace = true

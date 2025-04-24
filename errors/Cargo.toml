@@ -1,0 +1,15 @@
+[package]
+name = "app-errors"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+thiserror.workspace = true
+actix-web.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sea-orm.workspace = true
+validator.workspace = true
+argon2.workspace = true
+messaging.workspace = true
+common.workspace = true
