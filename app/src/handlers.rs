@@ -1,5 +1,5 @@
 use actix_web::{Responder, web};
-use celeris_errors::{AppError, UserError};
+use app_errors::{AppError, UserError};
 use messaging::{AppMessageTopic, AppMessageWrapper, HelloEmailTemplate, MessagingClient};
 use serde_json::json;
 use tokio::sync::RwLock;

@@ -1,9 +1,9 @@
 use actix_web::http::StatusCode;
-use celeris_errors::{AppError, Error, UserError};
+use app_errors::{AppError, Error, UserError};
 use chrono::{DateTime, Utc};
 use common::helpers::generate_random_string;
 use entity::sea_orm_active_enums::TokenType;
-use entity::{accounts, auth_tokens};
+use entity::{auth_tokens, users};
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QuerySelect, TransactionTrait,
@@ -23,15 +23,15 @@ impl AuthService {
     pub async fn register(dto: RegisterRequestDto) -> Result<RegisterRequestResponseDto, Error> {
         let conn = &persistence_state::get()?.db;
 
-        let account = conn
-            .transaction::<_, accounts::Model, Error>(|tx| {
+        let user = conn
+            .transaction::<_, users::Model, Error>(|tx| {
                 Box::pin(async move {
                     let email = dto.email.to_lowercase();
 
-                    let exists: Option<i64> = accounts::Entity::find()
-                        .filter(accounts::Column::Email.eq(&email))
+                    let exists: Option<i64> = users::Entity::find()
+                        .filter(users::Column::Email.eq(&email))
                         .select_only()
-                        .column(accounts::Column::Id)
+                        .column(users::Column::Id)
                         .into_tuple()
                         .one(tx)
                         .await
@@ -49,7 +49,7 @@ impl AuthService {
                         .hash_password(&dto.password)
                         .map_err(Into::<AppError>::into)?;
 
-                    let account = accounts::ActiveModel {
+                    let account = users::ActiveModel {
                         name: Set(dto.name),
                         password: Set(password),
                         email: Set(email),
@@ -64,22 +64,22 @@ impl AuthService {
             })
             .await?;
 
-        tracing::info!(account.id, "User registered successfully",);
+        tracing::info!(user.id, "User registered successfully",);
 
-        Ok(RegisterRequestResponseDto { id: account.id })
+        Ok(RegisterRequestResponseDto { id: user.id })
     } // end function register
 
     #[instrument(skip_all)]
     pub async fn login(dto: LoginRequestDto) -> Result<LoginResponseDto, Error> {
         let conn = &persistence_state::get()?.db;
 
-        let account = accounts::Entity::find()
-            .filter(accounts::Column::Email.eq(dto.email.to_lowercase()))
+        let user = users::Entity::find()
+            .filter(users::Column::Email.eq(dto.email.to_lowercase()))
             .one(conn)
             .await
             .map_err(AppError::DbErr)?;
 
-        let Some(account) = account else {
+        let Some(account) = user else {
             let err = UserError::from_message("Invalid email or password", StatusCode::NOT_FOUND);
 
             return Err(err.into());
@@ -113,7 +113,7 @@ impl AuthService {
 
     async fn create_uniq_auth_token(
         length: u8,
-        account_id: i64,
+        user_id: i64,
         token_type: TokenType,
         meta: Option<serde_json::Value>,
         expires_at: Option<DateTime<Utc>>,
@@ -154,7 +154,7 @@ impl AuthService {
                     };
 
                     let auth_token = auth_tokens::ActiveModel {
-                        account_id: Set(account_id),
+                        user_id: Set(user_id),
                         token: Set(token),
                         token_type: Set(token_type),
                         expires_at: Set(expires_at.map(Into::into)),

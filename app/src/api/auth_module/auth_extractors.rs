@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use actix_web::{FromRequest, HttpMessage, http::StatusCode};
-use celeris_errors::UserError;
+use app_errors::UserError;
 use futures_util::future::{LocalBoxFuture, Ready, ready};
 
 use super::auth_models::AuthInfo;

@@ -12,7 +12,7 @@ use actix_web::{
     web,
 };
 use api::auth_module::auth_middleware::auth_middleware_global;
-use celeris_errors::{AppError, UserError};
+use app_errors::{AppError, UserError};
 use common::AppConfig;
 use handlers::health_check;
 use messaging::MessagingClient;

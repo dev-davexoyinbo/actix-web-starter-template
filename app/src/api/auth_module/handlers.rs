@@ -2,7 +2,7 @@ use actix_web::{
     HttpResponse, Responder,
     web::{self, Json},
 };
-use celeris_errors::UserError;
+use app_errors::UserError;
 use common::ResponseDto;
 use tracing::instrument;
 use validator::Validate;

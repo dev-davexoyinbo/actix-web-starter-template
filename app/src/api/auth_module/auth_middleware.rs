@@ -6,8 +6,8 @@ use actix_web::{
     middleware::Next,
     web,
 };
-use celeris_errors::{AppError, UserError};
-use entity::{accounts, auth_tokens, sea_orm_active_enums::TokenType};
+use app_errors::{AppError, UserError};
+use entity::{auth_tokens, sea_orm_active_enums::TokenType, users};
 use sea_orm::{ColumnTrait, Condition, EntityTrait, QueryFilter};
 
 use crate::{api::auth_module::auth_models::AuthInfo, persistence_state::PersistenceState};
@@ -35,20 +35,20 @@ pub async fn auth_middleware_global(
                                 .add(auth_tokens::Column::ExpiresAt.gt(chrono::Utc::now())),
                         ),
                 )
-                .find_also_related(accounts::Entity)
+                .find_also_related(users::Entity)
                 .one(db)
                 .await
                 .map_err(AppError::DbErr)
                 .map_err(Into::<UserError>::into)?;
 
-            if let Some((auth_token, Some(account))) = auth_token {
+            if let Some((auth_token, Some(user))) = auth_token {
                 let auth_info = AuthInfo {
                     access_token: auth_token.token,
-                    account_id: account.id,
-                    email: account.email,
-                    name: account.name,
-                    status: account.status,
-                    email_verified_at: account.email_verified_at.map(Into::into),
+                    user_id: user.id,
+                    email: user.email,
+                    name: user.name,
+                    status: user.status,
+                    email_verified_at: user.email_verified_at.map(Into::into),
                 };
 
                 req.extensions_mut().insert(auth_info);

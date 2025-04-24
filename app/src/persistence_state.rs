@@ -1,7 +1,7 @@
 use std::{sync::OnceLock, time::Duration};
 
 use actix_web::web;
-use celeris_errors::AppError;
+use app_errors::AppError;
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 
 pub struct PersistenceState {

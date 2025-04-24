@@ -1,7 +1,7 @@
 use std::sync::OnceLock;
 
 use actix_web::web;
-use celeris_errors::AppError;
+use app_errors::AppError;
 
 pub mod password {
     use super::*;

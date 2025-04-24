@@ -1,4 +1,4 @@
-use celeris_errors::AppError;
+use app_errors::AppError;
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
