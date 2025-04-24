@@ -14,9 +14,7 @@ pub async fn spawn_app() -> &'static SpawnAppVariables {
             .await
             .expect("Failed to initialize app config");
 
-        let server = celeris::run_app()
-            .await
-            .expect("Failed to start application");
+        let server = app::run_app().await.expect("Failed to start application");
         let _handle = tokio::spawn(server);
 
         SpawnAppVariables {
