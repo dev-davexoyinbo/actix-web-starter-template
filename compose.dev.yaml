@@ -9,7 +9,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: celeris
+      POSTGRES_DB: app
     ports:
       - 5434:5432
 
@@ -21,7 +21,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: celeris
+      POSTGRES_DB: app
     ports:
       - 5435:5432
 
