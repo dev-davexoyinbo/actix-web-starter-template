@@ -1,8 +1,9 @@
 use actix_web::http::StatusCode;
+use app_errors::{AppError, Error, UserError};
 use chrono::{DateTime, Utc};
 use common::helpers::{generate_random_numeric_string, generate_random_string};
-use entity::auth_tokens;
 use entity::sea_orm_active_enums::TokenType;
+use entity::{auth_tokens, users};
 use messaging::{AppMessageTopic, AppMessageWrapper, VerifyEmailTemplate};
 use sea_orm::ActiveValue::{Set, Unchanged};
 use sea_orm::{
@@ -14,13 +15,13 @@ use tracing::instrument;
 use crate::{app_config, globals, persistence_state};
 
 use super::auth_dtos::{
-    AccountMeResponseDto, LoginRequestDto, LoginResponseDto, RegisterRequestDto,
-    RegisterRequestResponseDto, ResendVerificationEmailRequestDto, VerifyEmailRequestDto,
+    LoginRequestDto, LoginResponseDto, RegisterRequestDto, RegisterRequestResponseDto,
+    ResendVerificationEmailRequestDto, UserMeResponseDto, VerifyEmailRequestDto,
 };
 
 struct CreateUniqTokenArguments {
     length: u8,
-    account_id: i64,
+    user_id: i64,
     token_type: TokenType,
     meta: Option<serde_json::Value>,
     expires_at: Option<DateTime<Utc>>,
@@ -34,15 +35,15 @@ impl AuthService {
     pub async fn register(dto: RegisterRequestDto) -> Result<RegisterRequestResponseDto, Error> {
         let conn = &persistence_state::get()?.db;
 
-        let account = conn
-            .transaction::<_, accounts::Model, Error>(|tx| {
+        let user = conn
+            .transaction::<_, users::Model, Error>(|tx| {
                 Box::pin(async move {
                     let email = dto.email.to_lowercase();
 
-                    let exists: Option<i64> = accounts::Entity::find()
-                        .filter(accounts::Column::Email.eq(&email))
+                    let exists: Option<i64> = users::Entity::find()
+                        .filter(users::Column::Email.eq(&email))
                         .select_only()
-                        .column(accounts::Column::Id)
+                        .column(users::Column::Id)
                         .into_tuple()
                         .one(tx)
                         .await
@@ -60,7 +61,7 @@ impl AuthService {
                         .hash_password(&dto.password)
                         .map_err(Into::<AppError>::into)?;
 
-                    let account = accounts::ActiveModel {
+                    let user = users::ActiveModel {
                         name: Set(dto.name),
                         password: Set(password),
                         email: Set(email),
@@ -70,37 +71,36 @@ impl AuthService {
                     .await
                     .map_err(AppError::DbErr)?;
 
-                    Self::send_verification_email(tx, account.id, &account.name, &account.email)
-                        .await?;
+                    Self::send_verification_email(tx, user.id, &user.name, &user.email).await?;
 
-                    Ok(account)
+                    Ok(user)
                 })
             })
             .await?;
 
-        tracing::info!(account.id, "User registered successfully",);
+        tracing::info!(user.id, "User registered successfully",);
 
-        Ok(RegisterRequestResponseDto { id: account.id })
+        Ok(RegisterRequestResponseDto { id: user.id })
     } // end function register
 
     #[instrument(skip_all)]
     pub async fn login(dto: LoginRequestDto) -> Result<LoginResponseDto, Error> {
         let conn = &persistence_state::get()?.db;
 
-        let account = accounts::Entity::find()
-            .filter(accounts::Column::Email.eq(dto.email.to_lowercase()))
+        let user = users::Entity::find()
+            .filter(users::Column::Email.eq(dto.email.to_lowercase()))
             .one(conn)
             .await
             .map_err(AppError::DbErr)?;
 
-        let Some(account) = account else {
+        let Some(user) = user else {
             let err = UserError::from_message("Invalid email or password", StatusCode::NOT_FOUND);
 
             return Err(err.into());
         };
 
         if !globals::password::get()?
-            .verify_hashed_password(&account.password, &dto.password)
+            .verify_hashed_password(&user.password, &dto.password)
             .map_err(|err| {
                 UserError::from_message(
                     &format!("Failed to verify password: {}", err),
@@ -116,7 +116,7 @@ impl AuthService {
         let auth_token = Self::create_uniq_auth_token(
             CreateUniqTokenArguments {
                 length: 32,
-                account_id: account.id,
+                user_id: user.id,
                 token_type: TokenType::AccessToken,
                 meta: None,
                 expires_at: None,
@@ -126,10 +126,10 @@ impl AuthService {
         )
         .await?;
 
-        tracing::info!(account.id, "User logged in successfully",);
+        tracing::info!(user.id, "User logged in successfully",);
 
         Ok(LoginResponseDto {
-            id: account.id,
+            id: user.id,
             token: auth_token.token,
         })
     } // end function login
@@ -140,21 +140,21 @@ impl AuthService {
     ) -> Result<(), Error> {
         let conn = &persistence_state::get()?.db;
 
-        let account = accounts::Entity::find()
-            .filter(accounts::Column::Email.eq(email.to_lowercase()))
+        let account = users::Entity::find()
+            .filter(users::Column::Email.eq(email.to_lowercase()))
             .one(conn)
             .await
             .map_err(AppError::DbErr)?;
 
         let Some(account) = account else {
-            let err = UserError::from_message("Account not found", StatusCode::NOT_FOUND);
+            let err = UserError::from_message("User not found", StatusCode::NOT_FOUND);
             return Err(err.into());
         };
 
         let auth_token = auth_tokens::Entity::find()
             .filter(
                 Condition::all()
-                    .add(auth_tokens::Column::AccountId.eq(account.id))
+                    .add(auth_tokens::Column::UserId.eq(account.id))
                     .add(auth_tokens::Column::Token.eq(token))
                     .add(
                         Condition::any()
@@ -172,7 +172,7 @@ impl AuthService {
             return Err(err.into());
         }
 
-        accounts::ActiveModel {
+        users::ActiveModel {
             id: Unchanged(account.id),
             email_verified_at: Set(Some(Utc::now().into())),
             ..Default::default()
@@ -192,7 +192,7 @@ impl AuthService {
         async fn helper(
             CreateUniqTokenArguments {
                 length,
-                account_id,
+                user_id,
                 token_type,
                 meta,
                 expires_at,
@@ -237,7 +237,7 @@ impl AuthService {
                         };
 
                         let auth_token = auth_tokens::ActiveModel {
-                            account_id: Set(account_id),
+                            user_id: Set(user_id),
                             token: Set(token),
                             token_type: Set(token_type),
                             expires_at: Set(expires_at.map(Into::into)),
@@ -277,27 +277,27 @@ impl AuthService {
     } // end function
 
     #[instrument]
-    pub async fn me(account_id: i64) -> Result<AccountMeResponseDto, Error> {
+    pub async fn me(account_id: i64) -> Result<UserMeResponseDto, Error> {
         let persistence_state = persistence_state::get()?;
         let db = &persistence_state.db;
-        let account = accounts::Entity::find_by_id(account_id)
+        let user = users::Entity::find_by_id(account_id)
             .one(db)
             .await
             .map_err(AppError::DbErr)?;
 
-        let Some(account) = account else {
+        let Some(user) = user else {
             let err = UserError::from_message("Account not found", StatusCode::NOT_FOUND);
             return Err(err.into());
         };
 
-        Ok(AccountMeResponseDto {
-            id: account.id,
-            name: account.name,
-            email: account.email,
-            status: account.status,
-            email_verified_at: account.email_verified_at.map(Into::into),
-            created_at: account.created_at.into(),
-            updated_at: account.updated_at.into(),
+        Ok(UserMeResponseDto {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            status: user.status,
+            email_verified_at: user.email_verified_at.map(Into::into),
+            created_at: user.created_at.into(),
+            updated_at: user.updated_at.into(),
         })
     }
 
@@ -309,25 +309,24 @@ impl AuthService {
 
         db.transaction::<_, (), Error>(|tx| {
             Box::pin(async move {
-                let account = accounts::Entity::find()
-                    .filter(accounts::Column::Email.eq(dto.email.to_lowercase()))
+                let user = users::Entity::find()
+                    .filter(users::Column::Email.eq(dto.email.to_lowercase()))
                     .one(tx)
                     .await
                     .map_err(AppError::DbErr)?;
 
-                let Some(account) = account else {
+                let Some(user) = user else {
                     let err = UserError::from_message("Account not found", StatusCode::NOT_FOUND);
                     return Err(err.into());
                 };
 
-                if account.email_verified_at.is_some() {
+                if user.email_verified_at.is_some() {
                     let err =
                         UserError::from_message("Email already verified", StatusCode::BAD_REQUEST);
                     return Err(err.into());
                 }
 
-                Self::send_verification_email(tx, account.id, &account.name, &account.email)
-                    .await?;
+                Self::send_verification_email(tx, user.id, &user.name, &user.email).await?;
 
                 Ok(())
             })
@@ -338,9 +337,9 @@ impl AuthService {
 
     async fn send_verification_email(
         tx: &DatabaseTransaction,
-        account_id: i64,
-        account_name: &str,
-        account_email: &str,
+        user_id: i64,
+        user_name: &str,
+        user_email: &str,
     ) -> Result<(), Error> {
         let messaging_client = globals::messaging::get()?;
         let app_config = app_config::get()?;
@@ -348,7 +347,7 @@ impl AuthService {
         let otp = AuthService::create_uniq_auth_token(
             CreateUniqTokenArguments {
                 length: 6,
-                account_id,
+                user_id,
                 token_type: TokenType::EmailOtp,
                 meta: None,
                 expires_at: Some(Utc::now() + chrono::Duration::minutes(30)),
@@ -366,11 +365,11 @@ impl AuthService {
                     "{} <{}>",
                     app_config.app.name, app_config.messaging.default_email_from
                 ),
-                to: format!("{} <{}>", account_name, account_email),
+                to: format!("{} <{}>", user_name, user_email),
                 reply_to: None,
                 subject: "Verify email".to_string(),
                 template: VerifyEmailTemplate {
-                    name: account_name.to_string(),
+                    name: user_name.to_string(),
                     otp: otp.token,
                 }
                 .into(),

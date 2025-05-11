@@ -1,3 +1,5 @@
+use chrono::{DateTime, Utc};
+use entity::sea_orm_active_enums::UserStatus;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
@@ -33,4 +35,32 @@ pub struct LoginRequestDto {
 pub struct LoginResponseDto {
     pub id: i64,
     pub token: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct UserMeResponseDto {
+    pub id: i64,
+    pub name: String,
+    pub email: String,
+    pub status: UserStatus,
+    pub email_verified_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Deserialize, Debug, Validate)]
+pub struct VerifyEmailRequestDto {
+    #[validate(length(min = 1, message = "Token must be at least 1 character long"))]
+    #[serde(default)]
+    pub token: String,
+    #[validate(email(message = "Invalid email format"))]
+    #[serde(default)]
+    pub email: String,
+}
+
+#[derive(Deserialize, Debug, Validate)]
+pub struct ResendVerificationEmailRequestDto {
+    #[validate(email(message = "Invalid email format"))]
+    #[serde(default)]
+    pub email: String,
 }
