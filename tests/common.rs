@@ -18,8 +18,11 @@ pub async fn spawn_app() -> &'static SpawnAppVariables {
         let _handle = tokio::spawn(server);
 
         SpawnAppVariables {
-            base_url: Url::parse(&format!("http://{}:{}", app_config.host, app_config.port))
-                .expect("Failed to parse base URL"),
+            base_url: Url::parse(&format!(
+                "http://{}:{}",
+                app_config.app.host, app_config.app.port
+            ))
+            .expect("Failed to parse base URL"),
         }
     })
     .await
