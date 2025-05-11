@@ -4,11 +4,17 @@ use crate::common_error::CommonError;
 
 #[derive(Debug, Clone)]
 pub struct AppConfig {
-    pub port: u16,
-    pub host: String,
+    pub app: AppAppConfig,
     pub db: DbConfig,
     pub password: PasswordConfig,
     pub messaging: MessagingConfig,
+}
+
+#[derive(Debug, Clone)]
+pub struct AppAppConfig {
+    pub port: u16,
+    pub host: String,
+    pub name: String,
 }
 
 #[derive(Debug, Clone)]
@@ -18,6 +24,7 @@ pub struct PasswordConfig {
 
 #[derive(Debug, Clone)]
 pub struct MessagingConfig {
+    pub default_email_from: String,
     pub smtp_username: String,
     pub smtp_password: String,
     pub smtp_host: String,
@@ -53,13 +60,17 @@ impl AppConfig {
         dotenv::dotenv().ok();
 
         let rv = Self {
-            port: get_optional_env_val("APP_PORT", 8080),
-            host: get_optional_env_val("APP_HOST", "0.0.0.0".to_string()),
+            app: AppAppConfig {
+                port: get_optional_env_val("APP_PORT", 8080),
+                host: get_optional_env_val("APP_HOST", "0.0.0.0".to_string()),
+                name: get_optional_env_val("APP_NAME", "Celeris".to_string()),
+            },
             db: DbConfig {
                 url: get_required_env_val("DATABASE_URL")?,
             },
             password: PasswordConfig::initialize()?,
             messaging: MessagingConfig {
+                default_email_from: get_required_env_val("DEFAULT_EMAIL_FROM")?,
                 smtp_username: get_required_env_val("SMTP_USERNAME")?,
                 smtp_password: get_required_env_val("SMTP_PASSWORD")?,
                 smtp_host: get_required_env_val("SMTP_HOST")?,

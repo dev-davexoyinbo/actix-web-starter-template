@@ -31,8 +31,8 @@ pub async fn run_app() -> Result<Server, AppError> {
     app_config::initialize(config.clone()).await?;
     tracing::info!("<<< App configurations initialized successfully.");
 
-    let host = config.host.clone();
-    let port = config.port;
+    let host = config.app.host.clone();
+    let port = config.app.port;
 
     // initialize persistence state
     tracing::info!(">>> Initializing persistence state(db)...");

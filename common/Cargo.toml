@@ -13,3 +13,4 @@ argon2.workspace = true
 tracing.workspace = true
 actix-web.workspace = true
 rand.workspace = true
+validator.workspace = true

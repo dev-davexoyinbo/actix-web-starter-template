@@ -7,6 +7,7 @@ use actix_web::{
     web,
 };
 use app_errors::{AppError, UserError};
+use chrono::Utc;
 use entity::{auth_tokens, sea_orm_active_enums::TokenType, users};
 use sea_orm::{ColumnTrait, Condition, EntityTrait, QueryFilter};
 
@@ -77,6 +78,33 @@ pub async fn guest_middleware(
             "Resource only accessible to guests",
             StatusCode::UNAUTHORIZED,
         );
+        return Err(err.into());
+    }
+
+    next.call(req).await
+}
+
+pub async fn require_email_verification(
+    auth_info: AuthExtractor,
+    req: ServiceRequest,
+    next: Next<impl MessageBody>,
+) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
+    let auth_info = auth_info.into_inner();
+
+    let Some(email_verified_at) = auth_info.email_verified_at else {
+        let err = UserError::from_message("Email not verified", StatusCode::FORBIDDEN);
+        return Err(err.into());
+    };
+
+    if email_verified_at > Utc::now() {
+        let err =
+            UserError::from_message("Email verification status in future", StatusCode::FORBIDDEN);
+
+        tracing::error!(
+            account_id = auth_info.user_id,
+            "Email verification status in future"
+        );
+
         return Err(err.into());
     }
 
