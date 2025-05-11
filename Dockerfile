@@ -1,4 +1,4 @@
-FROM lukemathwalker/cargo-chef:latest-rust-1.85 as chef
+FROM lukemathwalker/cargo-chef:latest-rust-1.86 as chef
 WORKDIR /app
 RUN apt update && apt install lld clang -y
 FROM chef as planner
@@ -15,7 +15,7 @@ RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
 ENV SQLX_OFFLINE true
 # Build our project
-RUN cargo build --release --bin celeris_backend
+RUN cargo build --release --bin app
 
 # Runtime stage
 FROM debian:bookworm-slim AS runtime
@@ -32,10 +32,10 @@ RUN apt-get update -y \
   && rm -rf /var/lib/apt/lists/*
 
 
-EXPOSE 8080
+EXPOSE ${APP_PORT:-9000}
 
-COPY --from=builder /app/target/release/celeris_backend /usr/local/bin
+COPY --from=builder /app/target/release/app /usr/local/bin
 # COPY configuration configuration
 
 
-ENTRYPOINT [ "/usr/local/bin/celeris_backend" ]
+ENTRYPOINT [ "/usr/local/bin/app" ]

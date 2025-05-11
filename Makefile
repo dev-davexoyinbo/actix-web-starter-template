@@ -5,25 +5,26 @@
 help: ## Show this help message
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-dev: ## Start up dev server
-	docker compose -f compose.dev.yaml up --build --remove-orphans
+down: ## Tear down dev server
+	docker compose -f compose.yaml --profile dev --profile test --profile prod down
 
-dev-d: ## Start up dev server - detached mode
-	docker compose -f compose.dev.yaml up -d --build --remove-orphans
+up-dev: ## Start up dev server
+	docker compose -f compose.yaml --profile dev up --build --remove-orphans
 
-dev-down: ## Tear down dev server
-	docker compose -f compose.dev.yaml down
+up-dev-d: ## Start up dev server - detached mode
+	docker compose -f compose.yaml --profile dev up -d --build --remove-orphans
 
+up-test: ## Start up dev server
+	docker compose -f compose.yaml --profile test up --build --remove-orphans
 
-prod-d: ## Start up prod server
-	docker compose -f compose.yaml up -d --build --remove-orphans
+up-test-d: ## Start up dev server - detached mode
+	docker compose -f compose.yaml --profile test up -d --build --remove-orphans
 
-prod: ## Start up prod server
-	docker compose -f compose.yaml up --build --remove-orphans
+up-prod-d: ## Start up prod server
+	docker compose -f compose.yaml --profile prod up -d --build --remove-orphans
 
-
-prod-down: ## Tear down prod server
-	docker compose -f compose.yaml down
+up-prod: ## Start up prod server
+	docker compose -f compose.yaml --profile prod up --build --remove-orphans
 
 build:
 	cargo build
@@ -39,7 +40,8 @@ clean:
 	rm -rf target/
 
 run:
-	cargo run
+	# cargo run
+	bacon run
 
 coverage:
 	cargo tarpaulin --ignore-tests
@@ -53,10 +55,17 @@ check:
 	cargo fmt -- --check
 
 watch:
-	cargo watch -x run
+	# cargo watch -x run
+	bacon run-long
+
+watch-test:
+	bacon test
 
 migrate:
 	sea-orm-cli migrate up
+
+migrate-refresh:
+	sea-orm-cli migrate refresh
 
 migrate-test:
 	DATABASE_URL=$(shell grep '^TEST_DATABASE_URL=' .env | cut -d '=' -f2) \

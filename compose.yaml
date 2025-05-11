@@ -1,8 +1,89 @@
-version: "3"
-
 services:
+  postgres_db:
+    image: postgres:17
+    profiles: [dev]
+    # restart: on-failure
+    restart: no
+    volumes:
+      - db:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app
+    ports:
+      - 5434:5432
+
+  postgres_test_db:
+    image: postgres:17
+    profiles: [test]
+    # restart: on-failure
+    restart: no
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app
+    ports:
+      - 5435:5432
+
+  kafka:
+    image: apache/kafka-native
+    profiles: [dev, test]
+    ports:
+      - "9092:9092"
+    environment:
+      # Configure listeners for both docker and host communication
+      KAFKA_LISTENERS: CONTROLLER://localhost:9091,HOST://0.0.0.0:9092,DOCKER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: HOST://localhost:9092,DOCKER://kafka:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,DOCKER:PLAINTEXT,HOST:PLAINTEXT
+
+      # Settings required for KRaft mode
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9091
+
+      # Listener to use for broker-to-broker communication
+      KAFKA_INTER_BROKER_LISTENER_NAME: DOCKER
+
+      # Required for a single node cluster
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+  kafka-ui:
+    image: kafbat/kafka-ui:main
+    profiles: [dev, test]
+    ports:
+      - 8080:8080
+    environment:
+      DYNAMIC_CONFIG_ENABLED: "true"
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9093
+    depends_on:
+      - kafka
+  #
+  # backend:
+  #   depends_on:
+  #     # - prometheus
+  #     # - jaeger
+  #     - postgres_db
+  #   build:
+  #     context: .
+  #     dockerfile: dev.Dockerfile
+  #   env_file:
+  #     - ./.env
+  #   environment:
+  #     DATABASE_URL: postgres://postgres:postgres@postgres_db:5432/app
+  #   volumes:
+  #     - ./:/app/
+  #     - ./target:/app/target
+  #   ports:
+  #     - "${APP_PORT:-9000}:${APP_PORT:-9000}"
+
+  # Prod configs
   watchtower:
     image: containrrr/watchtower
+    profiles: [prod]
     command:
       - "--label-enable"
       - "--interval"
@@ -16,12 +97,14 @@ services:
 
   reverse-proxy:
     image: traefik:v3.1
+    profiles: [prod]
     command:
       - "--providers.docker"
       - "--providers.docker.exposedbydefault=false"
       - "--entryPoints.websecure.address=:443"
       - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
-      - "--certificatesresolvers.myresolver.acme.email=dev.davexoyinbo@gmail.com"
+      # Replace with your email
+      # - "--certificatesresolvers.myresolver.acme.email=email@gmail.com"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
@@ -34,26 +117,27 @@ services:
       - letsencrypt:/letsencrypt
       - /var/run/docker.sock:/var/run/docker.sock
 
-  backend:
-    # TODO: Change this to the image from the registry
-    # image: ghcr.io/work-mate/workmate-backend:prod
-    restart: always
-    deploy:
-      mode: replicated
-      replicas: 2
-    env_file:
-      - ./.env
-    #    environment:
-    #      DATABASE_URL: postgres://postgres:postgres@postgres_db:5432/declutter
-    volumes:
-      - ./:/app/
-      - ./target:/app/target
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.declutter.rule=Host(`backend.workmatetech.io`)"
-      - "traefik.http.routers.declutter.entrypoints=websecure"
-      - "traefik.http.routers.declutter.tls.certresolver=myresolver"
-      - "com.centurylinklabs.watchtower.enable=true"
+  # backend:
+  #   # TODO: Change this to the image from the registry
+  #   # image: ghcr.io/organization/project:prod
+  #   restart: always
+  #   profiles: [prod]
+  #   deploy:
+  #     mode: replicated
+  #     replicas: 2
+  #   env_file:
+  #     - ./.env
+  #   #    environment:
+  #   #      DATABASE_URL: postgres://postgres:postgres@postgres_db:5432/declutter
+  #   volumes:
+  #     - ./:/app/
+  #     - ./target:/app/target
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.http.routers.declutter.rule=Host(`backend.workmatetech.io`)"
+  #     - "traefik.http.routers.declutter.entrypoints=websecure"
+  #     - "traefik.http.routers.declutter.tls.certresolver=myresolver"
+  #     - "com.centurylinklabs.watchtower.enable=true"
 
 volumes:
   db:
