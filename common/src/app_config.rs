@@ -30,6 +30,7 @@ pub struct MessagingConfig {
     pub smtp_host: String,
     pub smtp_port: String,
     pub kafka_server_url: String,
+    pub kafka_group_id: String,
 }
 
 impl PasswordConfig {
@@ -76,6 +77,7 @@ impl AppConfig {
                 smtp_host: get_required_env_val("SMTP_HOST")?,
                 smtp_port: get_required_env_val("SMTP_PORT")?,
                 kafka_server_url: get_required_env_val("APP_KAFKA_SERVER")?,
+                kafka_group_id: get_required_env_val("APP_KAFKA_GROUP_ID")?,
             },
         };
 

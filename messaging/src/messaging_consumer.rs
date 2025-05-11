@@ -33,12 +33,11 @@ impl MessagingConsumer {
     ) -> Result<MessagingConsumer, MessagingError> {
         let consumer: StreamConsumer = ClientConfig::new()
             .set("bootstrap.servers", config.kafka_server_url)
-            .set("group.id", "celeris_group_id")
+            .set("group.id", config.kafka_group_id)
             .set("enable.auto.commit", "false")
             .set("auto.offset.reset", "earliest")
             .set("session.timeout.ms", "6000")
             .set("max.poll.interval.ms", "300000")
-            .set("allow.auto.create.topics", "true")
             .create()
             .map_err(|err| {
                 MessagingError::ClientCreationError(format!("Error creating consumer: {}", err))
