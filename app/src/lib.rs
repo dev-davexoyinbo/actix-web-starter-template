@@ -51,6 +51,7 @@ pub async fn run_app() -> Result<Server, AppError> {
     let mut messaging_client = MessagingClient::initialize(config.messaging.clone()).await?;
     messaging_client.start_consumer().await?;
     let messaging_client = web::Data::new(RwLock::new(messaging_client));
+    globals::messaging::set(messaging_client.clone())?;
     tracing::info!("<<< Messaing client initialized successfully.");
 
     let json_config = web::JsonConfig::default()

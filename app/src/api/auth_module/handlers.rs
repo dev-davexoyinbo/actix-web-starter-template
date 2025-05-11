@@ -8,7 +8,11 @@ use tracing::instrument;
 use validator::Validate;
 
 use super::{
-    auth_dtos::{LoginRequestDto, RegisterRequestDto, RegisterRequestResponseDto},
+    auth_dtos::{
+        LoginRequestDto, RegisterRequestDto, RegisterRequestResponseDto,
+        ResendVerificationEmailRequestDto, UserMeResponseDto, VerifyEmailRequestDto,
+    },
+    auth_extractors::AuthExtractor,
     auth_service::AuthService,
 };
 
@@ -36,3 +40,37 @@ pub async fn login(dto: Json<LoginRequestDto>) -> Result<impl Responder, UserErr
 
     Ok(HttpResponse::Created().json(res))
 } // end function login
+
+pub async fn me(
+    auth_info: AuthExtractor,
+) -> Result<web::Json<ResponseDto<UserMeResponseDto>>, UserError> {
+    let auth_info = auth_info.into_inner();
+
+    let dto = AuthService::me(auth_info.user_id).await?;
+
+    Ok(web::Json(ResponseDto::new("".to_string(), dto)))
+}
+
+pub async fn verify_email(
+    dto: web::Json<VerifyEmailRequestDto>,
+) -> Result<impl Responder, UserError> {
+    dto.validate()?;
+
+    AuthService::verify_email(dto.into_inner()).await?;
+
+    let res = ResponseDto::new("Email verified successfully".to_string(), ());
+
+    Ok(web::Json(res))
+} // end function verify_email
+
+pub async fn resend_verification_email(
+    dto: web::Json<ResendVerificationEmailRequestDto>,
+) -> Result<impl Responder, UserError> {
+    dto.validate()?;
+
+    AuthService::resend_verification_email(dto.into_inner()).await?;
+
+    let res = ResponseDto::new("Verification email resent successfully".to_string(), ());
+
+    Ok(web::Json(res))
+} // end function resend_verification_email
