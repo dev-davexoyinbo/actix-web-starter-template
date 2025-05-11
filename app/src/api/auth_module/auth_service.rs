@@ -1,20 +1,31 @@
 use actix_web::http::StatusCode;
-use app_errors::{AppError, Error, UserError};
 use chrono::{DateTime, Utc};
-use common::helpers::generate_random_string;
+use common::helpers::{generate_random_numeric_string, generate_random_string};
+use entity::auth_tokens;
 use entity::sea_orm_active_enums::TokenType;
-use entity::{auth_tokens, users};
-use sea_orm::ActiveValue::Set;
+use messaging::{AppMessageTopic, AppMessageWrapper, VerifyEmailTemplate};
+use sea_orm::ActiveValue::{Set, Unchanged};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QuerySelect, TransactionTrait,
+    ActiveModelTrait, ColumnTrait, Condition, DatabaseTransaction, EntityTrait, QueryFilter,
+    QuerySelect, TransactionTrait,
 };
 use tracing::instrument;
 
-use crate::{globals, persistence_state};
+use crate::{app_config, globals, persistence_state};
 
 use super::auth_dtos::{
-    LoginRequestDto, LoginResponseDto, RegisterRequestDto, RegisterRequestResponseDto,
+    AccountMeResponseDto, LoginRequestDto, LoginResponseDto, RegisterRequestDto,
+    RegisterRequestResponseDto, ResendVerificationEmailRequestDto, VerifyEmailRequestDto,
 };
+
+struct CreateUniqTokenArguments {
+    length: u8,
+    account_id: i64,
+    token_type: TokenType,
+    meta: Option<serde_json::Value>,
+    expires_at: Option<DateTime<Utc>>,
+    is_numeric: bool,
+}
 
 pub struct AuthService;
 
@@ -23,15 +34,15 @@ impl AuthService {
     pub async fn register(dto: RegisterRequestDto) -> Result<RegisterRequestResponseDto, Error> {
         let conn = &persistence_state::get()?.db;
 
-        let user = conn
-            .transaction::<_, users::Model, Error>(|tx| {
+        let account = conn
+            .transaction::<_, accounts::Model, Error>(|tx| {
                 Box::pin(async move {
                     let email = dto.email.to_lowercase();
 
-                    let exists: Option<i64> = users::Entity::find()
-                        .filter(users::Column::Email.eq(&email))
+                    let exists: Option<i64> = accounts::Entity::find()
+                        .filter(accounts::Column::Email.eq(&email))
                         .select_only()
-                        .column(users::Column::Id)
+                        .column(accounts::Column::Id)
                         .into_tuple()
                         .one(tx)
                         .await
@@ -49,7 +60,7 @@ impl AuthService {
                         .hash_password(&dto.password)
                         .map_err(Into::<AppError>::into)?;
 
-                    let account = users::ActiveModel {
+                    let account = accounts::ActiveModel {
                         name: Set(dto.name),
                         password: Set(password),
                         email: Set(email),
@@ -59,27 +70,30 @@ impl AuthService {
                     .await
                     .map_err(AppError::DbErr)?;
 
+                    Self::send_verification_email(tx, account.id, &account.name, &account.email)
+                        .await?;
+
                     Ok(account)
                 })
             })
             .await?;
 
-        tracing::info!(user.id, "User registered successfully",);
+        tracing::info!(account.id, "User registered successfully",);
 
-        Ok(RegisterRequestResponseDto { id: user.id })
+        Ok(RegisterRequestResponseDto { id: account.id })
     } // end function register
 
     #[instrument(skip_all)]
     pub async fn login(dto: LoginRequestDto) -> Result<LoginResponseDto, Error> {
         let conn = &persistence_state::get()?.db;
 
-        let user = users::Entity::find()
-            .filter(users::Column::Email.eq(dto.email.to_lowercase()))
+        let account = accounts::Entity::find()
+            .filter(accounts::Column::Email.eq(dto.email.to_lowercase()))
             .one(conn)
             .await
             .map_err(AppError::DbErr)?;
 
-        let Some(account) = user else {
+        let Some(account) = account else {
             let err = UserError::from_message("Invalid email or password", StatusCode::NOT_FOUND);
 
             return Err(err.into());
@@ -99,9 +113,18 @@ impl AuthService {
             return Err(err.into());
         }
 
-        let auth_token =
-            Self::create_uniq_auth_token(32, account.id, TokenType::AccessToken, None, None)
-                .await?;
+        let auth_token = Self::create_uniq_auth_token(
+            CreateUniqTokenArguments {
+                length: 32,
+                account_id: account.id,
+                token_type: TokenType::AccessToken,
+                meta: None,
+                expires_at: None,
+                is_numeric: false,
+            },
+            None,
+        )
+        .await?;
 
         tracing::info!(account.id, "User logged in successfully",);
 
@@ -111,65 +134,256 @@ impl AuthService {
         })
     } // end function login
 
-    async fn create_uniq_auth_token(
-        length: u8,
-        user_id: i64,
-        token_type: TokenType,
-        meta: Option<serde_json::Value>,
-        expires_at: Option<DateTime<Utc>>,
-    ) -> Result<auth_tokens::Model, Error> {
+    #[instrument(skip_all)]
+    pub async fn verify_email(
+        VerifyEmailRequestDto { token, email }: VerifyEmailRequestDto,
+    ) -> Result<(), Error> {
         let conn = &persistence_state::get()?.db;
 
-        let auth_token = conn
-            .transaction::<_, auth_tokens::Model, Error>(|tx| {
-                Box::pin(async move {
-                    let mut count = 0;
+        let account = accounts::Entity::find()
+            .filter(accounts::Column::Email.eq(email.to_lowercase()))
+            .one(conn)
+            .await
+            .map_err(AppError::DbErr)?;
 
-                    let token: String = loop {
-                        if count >= 5 {
-                            let err = UserError::from_message(
-                                "Failed to generate a unique token",
-                                StatusCode::INTERNAL_SERVER_ERROR,
-                            );
-                            return Err(err.into());
+        let Some(account) = account else {
+            let err = UserError::from_message("Account not found", StatusCode::NOT_FOUND);
+            return Err(err.into());
+        };
+
+        let auth_token = auth_tokens::Entity::find()
+            .filter(
+                Condition::all()
+                    .add(auth_tokens::Column::AccountId.eq(account.id))
+                    .add(auth_tokens::Column::Token.eq(token))
+                    .add(
+                        Condition::any()
+                            .add(auth_tokens::Column::ExpiresAt.gt(Utc::now()))
+                            .add(auth_tokens::Column::ExpiresAt.is_null()),
+                    )
+                    .add(auth_tokens::Column::TokenType.eq(TokenType::EmailOtp)),
+            )
+            .one(conn)
+            .await
+            .map_err(AppError::DbErr)?;
+
+        if auth_token.is_none() {
+            let err = UserError::from_message("Invalid token", StatusCode::BAD_REQUEST);
+            return Err(err.into());
+        }
+
+        accounts::ActiveModel {
+            id: Unchanged(account.id),
+            email_verified_at: Set(Some(Utc::now().into())),
+            ..Default::default()
+        }
+        .update(conn)
+        .await
+        .map_err(AppError::DbErr)?;
+
+        Ok(())
+    } // end function verify_email
+
+    #[instrument(skip_all)]
+    async fn create_uniq_auth_token(
+        args: CreateUniqTokenArguments,
+        conn: Option<&DatabaseTransaction>,
+    ) -> Result<auth_tokens::Model, Error> {
+        async fn helper(
+            CreateUniqTokenArguments {
+                length,
+                account_id,
+                token_type,
+                meta,
+                expires_at,
+                is_numeric,
+            }: CreateUniqTokenArguments,
+            conn: &DatabaseTransaction,
+        ) -> Result<auth_tokens::Model, Error> {
+            let auth_token = conn
+                .transaction::<_, auth_tokens::Model, Error>(|tx| {
+                    Box::pin(async move {
+                        let mut count = 0;
+
+                        let token: String = loop {
+                            if count >= 5 {
+                                let err = UserError::from_message(
+                                    "Failed to generate a unique token",
+                                    StatusCode::INTERNAL_SERVER_ERROR,
+                                );
+                                return Err(err.into());
+                            }
+
+                            count += 1;
+
+                            let token = match is_numeric {
+                                true => generate_random_numeric_string(length),
+                                false => generate_random_string(length),
+                            };
+
+                            let exists = auth_tokens::Entity::find()
+                                .filter(auth_tokens::Column::Token.eq(&token))
+                                .select_only()
+                                .column(auth_tokens::Column::Id)
+                                .one(tx)
+                                .await
+                                .map_err(AppError::DbErr)?;
+
+                            if exists.is_some() {
+                                continue;
+                            }
+
+                            break token;
+                        };
+
+                        let auth_token = auth_tokens::ActiveModel {
+                            account_id: Set(account_id),
+                            token: Set(token),
+                            token_type: Set(token_type),
+                            expires_at: Set(expires_at.map(Into::into)),
+                            meta: Set(meta),
+                            ..Default::default()
                         }
+                        .insert(tx)
+                        .await
+                        .map_err(AppError::DbErr)?;
 
-                        count += 1;
+                        Ok(auth_token)
+                    })
+                })
+                .await?;
 
-                        let token = generate_random_string(length);
+            Ok(auth_token)
+        }
 
-                        let exists = auth_tokens::Entity::find()
-                            .filter(auth_tokens::Column::Token.eq(&token))
-                            .select_only()
-                            .column(auth_tokens::Column::Id)
-                            .one(tx)
-                            .await
-                            .map_err(AppError::DbErr)?;
+        match conn {
+            Some(conn) => helper(args, conn).await,
+            None => {
+                let db = &persistence_state::get()?.db;
 
-                        if exists.is_some() {
-                            continue;
-                        }
+                let auth_token = db
+                    .transaction::<_, auth_tokens::Model, Error>(|tx| {
+                        Box::pin(async move {
+                            let auth_token = helper(args, tx).await?;
 
-                        break token;
-                    };
+                            Ok(auth_token)
+                        })
+                    })
+                    .await?;
 
-                    let auth_token = auth_tokens::ActiveModel {
-                        user_id: Set(user_id),
-                        token: Set(token),
-                        token_type: Set(token_type),
-                        expires_at: Set(expires_at.map(Into::into)),
-                        meta: Set(meta),
-                        ..Default::default()
-                    }
-                    .insert(tx)
+                Ok(auth_token)
+            }
+        }
+    } // end function
+
+    #[instrument]
+    pub async fn me(account_id: i64) -> Result<AccountMeResponseDto, Error> {
+        let persistence_state = persistence_state::get()?;
+        let db = &persistence_state.db;
+        let account = accounts::Entity::find_by_id(account_id)
+            .one(db)
+            .await
+            .map_err(AppError::DbErr)?;
+
+        let Some(account) = account else {
+            let err = UserError::from_message("Account not found", StatusCode::NOT_FOUND);
+            return Err(err.into());
+        };
+
+        Ok(AccountMeResponseDto {
+            id: account.id,
+            name: account.name,
+            email: account.email,
+            status: account.status,
+            email_verified_at: account.email_verified_at.map(Into::into),
+            created_at: account.created_at.into(),
+            updated_at: account.updated_at.into(),
+        })
+    }
+
+    #[instrument]
+    pub async fn resend_verification_email(
+        dto: ResendVerificationEmailRequestDto,
+    ) -> Result<(), Error> {
+        let db = &persistence_state::get()?.db;
+
+        db.transaction::<_, (), Error>(|tx| {
+            Box::pin(async move {
+                let account = accounts::Entity::find()
+                    .filter(accounts::Column::Email.eq(dto.email.to_lowercase()))
+                    .one(tx)
                     .await
                     .map_err(AppError::DbErr)?;
 
-                    Ok(auth_token)
-                })
-            })
-            .await?;
+                let Some(account) = account else {
+                    let err = UserError::from_message("Account not found", StatusCode::NOT_FOUND);
+                    return Err(err.into());
+                };
 
-        Ok(auth_token)
-    } // end function
+                if account.email_verified_at.is_some() {
+                    let err =
+                        UserError::from_message("Email already verified", StatusCode::BAD_REQUEST);
+                    return Err(err.into());
+                }
+
+                Self::send_verification_email(tx, account.id, &account.name, &account.email)
+                    .await?;
+
+                Ok(())
+            })
+        })
+        .await?;
+        Ok(())
+    } // end function resend_verification_email
+
+    async fn send_verification_email(
+        tx: &DatabaseTransaction,
+        account_id: i64,
+        account_name: &str,
+        account_email: &str,
+    ) -> Result<(), Error> {
+        let messaging_client = globals::messaging::get()?;
+        let app_config = app_config::get()?;
+
+        let otp = AuthService::create_uniq_auth_token(
+            CreateUniqTokenArguments {
+                length: 6,
+                account_id,
+                token_type: TokenType::EmailOtp,
+                meta: None,
+                expires_at: Some(Utc::now() + chrono::Duration::minutes(30)),
+                is_numeric: true,
+            },
+            Some(tx),
+        )
+        .await?;
+
+        let app_message_wrapper = AppMessageWrapper {
+            key: None,
+            topic: AppMessageTopic::GeneralEmail,
+            message: messaging::EmailMessage {
+                from: format!(
+                    "{} <{}>",
+                    app_config.app.name, app_config.messaging.default_email_from
+                ),
+                to: format!("{} <{}>", account_name, account_email),
+                reply_to: None,
+                subject: "Verify email".to_string(),
+                template: VerifyEmailTemplate {
+                    name: account_name.to_string(),
+                    otp: otp.token,
+                }
+                .into(),
+            }
+            .into(),
+        };
+
+        messaging_client
+            .read()
+            .await
+            .send_message(app_message_wrapper)
+            .await
+            .map_err(AppError::MessagingError)?;
+        Ok(())
+    } //end method send_verification_email
 } // end impl for AuthService

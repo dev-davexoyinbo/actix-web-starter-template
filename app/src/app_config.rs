@@ -5,7 +5,7 @@ use app_errors::AppError;
 use common::AppConfig;
 
 static APP_CONFIG_CELL: OnceLock<web::Data<AppConfig>> = OnceLock::new();
-pub fn _get<'a>() -> Result<&'a AppConfig, AppError> {
+pub fn get<'a>() -> Result<&'a AppConfig, AppError> {
     let x = APP_CONFIG_CELL.get();
 
     match x {
