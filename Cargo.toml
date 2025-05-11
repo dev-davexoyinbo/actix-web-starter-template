@@ -28,11 +28,11 @@ thiserror = "2.0.12"
 serde = "1.0.219"
 serde_json = "1.0.140"
 dotenv = "0.15.0"
-tracing-actix-web = "0.7.16"
+tracing-actix-web = "0.7.18"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
-tokio = { version = "1.44.1", features = ["full"] }
-sea-orm = { version = "1.1.8", features = [
+tokio = { version = "1.45.0", features = ["full"] }
+sea-orm = { version = "1.1.11", features = [
   "debug-print",
   "sqlx-postgres",
   "macros",
@@ -42,11 +42,12 @@ async-trait = "0.1.88"
 log = "0.4.27"
 reqwest = { version = "0.12.15", features = ["json"] }
 validator = { version = "0.20.0", features = ["derive"] }
-chrono = "0.4.40"
+chrono = "0.4.41"
 argon2 = "0.5.3"
-rand = "0.9.0"
+rand = "0.9.1"
 futures-util = "0.3.31"
 rdkafka = "0.37.0"
 strum = { version = "0.27.1", features = ["derive"] }
-askama = "0.13.1"
+askama = "0.14.0"
 lettre = "0.11.15"
+actix-cors = "0.7.1"
