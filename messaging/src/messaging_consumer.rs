@@ -38,6 +38,7 @@ impl MessagingConsumer {
             .set("auto.offset.reset", "earliest")
             .set("session.timeout.ms", "6000")
             .set("max.poll.interval.ms", "300000")
+            .set("allow.auto.create.topics", "true")
             .create()
             .map_err(|err| {
                 MessagingError::ClientCreationError(format!("Error creating consumer: {}", err))
