@@ -22,3 +22,4 @@ messaging.workspace = true
 tokio.workspace = true
 actix-cors.workspace = true
 actix-governor.workspace = true
+actix-jobs.workspace = true

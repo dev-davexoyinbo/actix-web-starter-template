@@ -1,5 +1,6 @@
 mod api;
 mod app_config;
+mod cron_jobs;
 mod globals;
 mod handlers;
 mod persistence_state;
@@ -16,6 +17,7 @@ use actix_web::{
 use api::auth_module::auth_middleware::auth_middleware_global;
 use app_errors::{AppError, UserError};
 use common::AppConfig;
+use cron_jobs::CronJob;
 use handlers::health_check;
 use messaging::MessagingClient;
 use persistence_state::PersistenceState;
@@ -64,6 +66,10 @@ pub async fn run_app() -> Result<Server, AppError> {
 
             err.into()
         });
+
+    tracing::info!(">>> Starting Cron jobs");
+    CronJob::start();
+    tracing::info!("<<< Cron jobs started successfully.");
 
     let governor_conf = GovernorConfigBuilder::default()
         .requests_per_second(2)
