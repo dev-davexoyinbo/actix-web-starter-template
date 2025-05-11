@@ -51,3 +51,4 @@ strum = { version = "0.27.1", features = ["derive"] }
 askama = "0.14.0"
 lettre = "0.11.15"
 actix-cors = "0.7.1"
+actix-governor = "0.8.0"

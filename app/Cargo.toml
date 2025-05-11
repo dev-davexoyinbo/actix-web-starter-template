@@ -20,3 +20,5 @@ chrono.workspace = true
 futures-util.workspace = true
 messaging.workspace = true
 tokio.workspace = true
+actix-cors.workspace = true
+actix-governor.workspace = true

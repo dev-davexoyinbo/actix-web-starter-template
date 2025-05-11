@@ -5,6 +5,8 @@ mod handlers;
 mod persistence_state;
 mod telemetry;
 
+use actix_cors::Cors;
+use actix_governor::{Governor, GovernorConfigBuilder};
 use actix_web::{
     App, HttpServer,
     dev::Server,
@@ -63,10 +65,24 @@ pub async fn run_app() -> Result<Server, AppError> {
             err.into()
         });
 
+    let governor_conf = GovernorConfigBuilder::default()
+        .requests_per_second(2)
+        .burst_size(10)
+        .finish()
+        .ok_or_else(|| AppError::CustomError("Failed to create GovernorConfig".to_string()))?;
+
     let server = HttpServer::new(move || {
+        let cors = Cors::default()
+            .allow_any_origin()
+            .allow_any_header()
+            .allow_any_method()
+            .max_age(3600);
+
         App::new()
             .wrap(from_fn(auth_middleware_global))
+            .wrap(cors)
             .wrap(TracingLogger::default())
+            .wrap(Governor::new(&governor_conf))
             .wrap(NormalizePath::new(TrailingSlash::Trim))
             .app_data(json_config.clone())
             .app_data(config.clone())
