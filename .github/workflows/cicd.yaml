@@ -69,6 +69,7 @@ jobs:
           SMTP_USERNAME: "username"
           SMTP_PASSWORD: "password"
           SMTP_PORT: 2525
+          APP_KAFKA_GROUP_ID: "app-kafka-group-id"
 
   # build:
   #   runs-on: ubuntu-latest
