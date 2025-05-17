@@ -6,6 +6,7 @@ mod m20250329_214907_create_permissions_table;
 mod m20250329_215624_create_role_permissions_table;
 mod m20250413_192405_create_auth_token_table;
 mod m20250517_114647_create_user_role_table;
+mod m20250517_115636_create_user_permission_table;
 
 pub struct Migrator;
 
@@ -19,6 +20,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20250329_215624_create_role_permissions_table::Migration),
             Box::new(m20250413_192405_create_auth_token_table::Migration),
             Box::new(m20250517_114647_create_user_role_table::Migration),
+            Box::new(m20250517_115636_create_user_permission_table::Migration),
         ]
     }
 }
