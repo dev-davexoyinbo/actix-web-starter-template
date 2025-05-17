@@ -43,6 +43,8 @@ pub struct UserMeResponseDto {
     pub name: String,
     pub email: String,
     pub status: UserStatus,
+    pub roles: Vec<String>,
+    pub permissions: Vec<String>,
     pub email_verified_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,

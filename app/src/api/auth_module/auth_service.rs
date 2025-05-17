@@ -2,8 +2,9 @@ use actix_web::http::StatusCode;
 use app_errors::{AppError, Error, UserError};
 use chrono::{DateTime, Utc};
 use common::helpers::{generate_random_numeric_string, generate_random_string};
+use entity::links::UserToPermissionsOfRole;
 use entity::sea_orm_active_enums::TokenType;
-use entity::{auth_tokens, users};
+use entity::{auth_tokens, permissions, roles, users};
 use messaging::{AppMessageTopic, AppMessageWrapper, VerifyEmailTemplate};
 use sea_orm::ActiveValue::{Set, Unchanged};
 use sea_orm::{
@@ -290,12 +291,53 @@ impl AuthService {
             return Err(err.into());
         };
 
+        let roles: Vec<String> = users::Entity::find()
+            .filter(users::Column::Id.eq(user.id))
+            .find_with_related(roles::Entity)
+            .all(db)
+            .await
+            .map_err(AppError::DbErr)
+            .map_err(Into::<UserError>::into)?
+            .into_iter()
+            .flat_map(|role_user| role_user.1)
+            .map(|role| role.name)
+            .collect();
+
+        let permissions_of_roles: Vec<String> = users::Entity::find()
+            .filter(users::Column::Id.eq(user.id))
+            .find_with_linked(UserToPermissionsOfRole)
+            .all(db)
+            .await
+            .map_err(AppError::DbErr)
+            .map_err(Into::<UserError>::into)?
+            .into_iter()
+            .flat_map(|p| p.1)
+            .map(|p| p.name)
+            .collect();
+
+        let permissions_of_users: Vec<String> = users::Entity::find()
+            .filter(users::Column::Id.eq(user.id))
+            .find_with_related(permissions::Entity)
+            .all(db)
+            .await
+            .map_err(AppError::DbErr)
+            .map_err(Into::<UserError>::into)?
+            .into_iter()
+            .flat_map(|p| p.1)
+            .map(|p| p.name)
+            .collect();
+
+        let mut permissions = permissions_of_roles;
+        permissions.extend(permissions_of_users);
+
         Ok(UserMeResponseDto {
             id: user.id,
             name: user.name,
             email: user.email,
             status: user.status,
             email_verified_at: user.email_verified_at.map(Into::into),
+            roles,
+            permissions,
             created_at: user.created_at.into(),
             updated_at: user.updated_at.into(),
         })
