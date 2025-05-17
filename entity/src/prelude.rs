@@ -4,4 +4,6 @@ pub use super::auth_tokens::Entity as AuthTokens;
 pub use super::permissions::Entity as Permissions;
 pub use super::role_permissions::Entity as RolePermissions;
 pub use super::roles::Entity as Roles;
+pub use super::user_permission::Entity as UserPermission;
+pub use super::user_role::Entity as UserRole;
 pub use super::users::Entity as Users;
