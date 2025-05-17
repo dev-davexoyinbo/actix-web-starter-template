@@ -8,7 +8,10 @@ use actix_web::{
 };
 use app_errors::{AppError, UserError};
 use chrono::Utc;
-use entity::{auth_tokens, roles, sea_orm_active_enums::TokenType, users};
+use entity::{
+    auth_tokens, links::UserRoleToPermission, permissions, roles, sea_orm_active_enums::TokenType,
+    user_role, users,
+};
 use sea_orm::{ColumnTrait, Condition, EntityTrait, QueryFilter};
 
 use crate::{
@@ -47,6 +50,14 @@ pub async fn auth_middleware_global(
                 .map_err(Into::<UserError>::into)?;
 
             if let Some((auth_token, Some(user))) = auth_token {
+                let roles = user_role::Entity::find()
+                    .filter(user_role::Column::UserId.eq(user.id))
+                    .find_with_linked(UserRoleToPermission)
+                    .all(db)
+                    .await
+                    .map_err(AppError::DbErr)
+                    .map_err(Into::<UserError>::into)?;
+
                 let auth_info = AuthInfo {
                     access_token: auth_token.token,
                     user_id: user.id,

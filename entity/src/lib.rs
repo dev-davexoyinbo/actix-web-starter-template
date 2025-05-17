@@ -1,6 +1,7 @@
 pub mod prelude;
 
 pub mod auth_tokens;
+pub mod links;
 pub mod permissions;
 pub mod role_permissions;
 pub mod roles;
