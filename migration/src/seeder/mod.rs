@@ -1,15 +1,21 @@
 use permission_seeder::PermissionSeeder;
+use role_permission_seeder::RolePermissionSeeder;
 use role_seeder::RoleSeeder;
 use sea_orm_migration::{MigrationName, MigrationTrait};
 
 mod permission_seeder;
+mod role_permission_seeder;
 mod role_seeder;
 
 pub struct Seeder;
 
 impl Seeder {
     fn seeders(&self) -> Vec<Box<dyn MigrationTrait>> {
-        vec![Box::new(RoleSeeder), Box::new(PermissionSeeder)]
+        vec![
+            Box::new(RoleSeeder),
+            Box::new(PermissionSeeder),
+            Box::new(RolePermissionSeeder),
+        ]
     }
 }
 
