@@ -2,7 +2,7 @@
   {
     "id": 1,
     "name": "Alice Johnson",
-    "email": "alice.johnson@example.com",
+    "email": "admin@email.com",
     "roles": ["admin"],
     "permissions": [],
     "password_env": "ADMIN_PASSWORD"
