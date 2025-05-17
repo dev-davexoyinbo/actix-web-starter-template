@@ -21,18 +21,12 @@ impl MigrationTrait for RoleSeeder {
         &self,
         manager: &sea_orm_migration::SchemaManager,
     ) -> Result<(), sea_orm_migration::DbErr> {
-        println!("Running the role seeder");
-
         let role_seeds = fs::read_to_string("migration/data/roles.json")
             .await
             .map_err(|err| DbErr::Custom(format!("Cannot read roles.json file: {}", err)))?;
 
-        let role_seeds: Vec<RoleSeed> = serde_json::from_str(&role_seeds).map_err(|err| {
-            DbErr::Custom(format!(
-                "Unable to deserialize states and cities json: {}",
-                err
-            ))
-        })?;
+        let role_seeds: Vec<RoleSeed> = serde_json::from_str(&role_seeds)
+            .map_err(|err| DbErr::Custom(format!("Unable to deserialize roles json: {}", err)))?;
 
         let mut active_models: Vec<roles::ActiveModel> = Vec::with_capacity(role_seeds.len());
 
@@ -48,6 +42,13 @@ impl MigrationTrait for RoleSeeder {
 
         roles::Entity::insert_many(active_models).exec(db).await?;
 
+        Ok(())
+    }
+
+    async fn down(
+        &self,
+        _manager: &sea_orm_migration::SchemaManager,
+    ) -> Result<(), sea_orm_migration::DbErr> {
         Ok(())
     }
 }

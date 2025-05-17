@@ -1,3 +1,4 @@
+use permission_seeder::PermissionSeeder;
 use role_seeder::RoleSeeder;
 use sea_orm_migration::{MigrationName, MigrationTrait};
 
@@ -8,7 +9,7 @@ pub struct Seeder;
 
 impl Seeder {
     fn seeders(&self) -> Vec<Box<dyn MigrationTrait>> {
-        vec![Box::new(RoleSeeder)]
+        vec![Box::new(RoleSeeder), Box::new(PermissionSeeder)]
     }
 }
 
@@ -22,6 +23,13 @@ impl MigrationTrait for Seeder {
             seeder.up(manager).await?;
         }
 
+        Ok(())
+    }
+
+    async fn down(
+        &self,
+        _manager: &sea_orm_migration::SchemaManager,
+    ) -> Result<(), sea_orm_migration::DbErr> {
         Ok(())
     }
 }
