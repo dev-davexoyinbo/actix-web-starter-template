@@ -9,8 +9,7 @@ use actix_web::{
 use app_errors::{AppError, UserError};
 use chrono::Utc;
 use entity::{
-    auth_tokens, links::UserRoleToPermission, permissions, roles, sea_orm_active_enums::TokenType,
-    user_role, users,
+    auth_tokens, links::UserRoleToPermission, sea_orm_active_enums::TokenType, user_role, users,
 };
 use sea_orm::{ColumnTrait, Condition, EntityTrait, QueryFilter};
 
