@@ -56,7 +56,10 @@ impl AccessControlCondition {
 
     /// Create a middleware initializer from this condition
     pub fn into_middleware(self) -> AccessControlMiddlewareInitializer {
-        AccessControlMiddlewareInitializer { condition: self }
+        AccessControlMiddlewareInitializer {
+            condition: self,
+            error_message: None,
+        }
     }
 }
 

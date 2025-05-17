@@ -3,7 +3,9 @@ use std::future::{Ready, ready};
 use actix_web::{
     Error, HttpMessage,
     dev::{Service, ServiceRequest, ServiceResponse, Transform, forward_ready},
+    http::StatusCode,
 };
+use app_errors::UserError;
 use futures_util::future::LocalBoxFuture;
 
 use crate::api::auth_module::auth_models::AuthInfo;
@@ -16,6 +18,7 @@ use super::AccessControlCondition;
 // 2. Middleware's call method gets called with normal request.
 pub struct AccessControlMiddlewareInitializer {
     pub condition: AccessControlCondition,
+    pub error_message: Option<String>,
 }
 
 impl From<AccessControlCondition> for AccessControlMiddlewareInitializer {
@@ -43,6 +46,7 @@ where
         ready(Ok(AccessControlMiddleware {
             service,
             condition: self.condition.clone(),
+            error_message: self.error_message.clone(),
         }))
     }
 }
@@ -50,6 +54,7 @@ where
 pub struct AccessControlMiddleware<S> {
     service: S,
     condition: AccessControlCondition,
+    error_message: Option<String>,
 }
 
 impl<S, B> Service<ServiceRequest> for AccessControlMiddleware<S>
@@ -67,7 +72,17 @@ where
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let auth_info = req.extensions().get::<AuthInfo>().cloned();
 
-        println!("Hi from start. You requested: {}", req.path());
+        if !self.condition.check(auth_info.as_ref()) {
+            let error_message = self
+                .error_message
+                .clone()
+                .unwrap_or("Unauthorized".to_string());
+
+            return Box::pin(async move {
+                let err = UserError::from_message(&error_message, StatusCode::FORBIDDEN);
+                Err(err.into())
+            });
+        }
 
         let fut = self.service.call(req);
 
