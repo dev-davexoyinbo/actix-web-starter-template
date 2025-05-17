@@ -2,16 +2,13 @@ use std::{fmt, sync::Arc};
 
 use crate::api::auth_module::auth_models::AuthInfo;
 
-type InnerAccessControlFunction = Arc<dyn Fn(&AuthInfo) -> bool + Send + Sync>;
+type InnerAccessControlFunction = Arc<dyn Fn(Option<&AuthInfo>) -> bool + Send + Sync>;
 
-/// Represents different types of access control conditions
 #[derive(Clone, Debug)]
 pub enum AccessControl {
-    /// Role-based access control
     Role(String),
-    /// Permission-based access control
     Permission(String),
-    /// Function-based access control using a closure
+    Guest,
     Function(AccessControlFunction),
 }
 

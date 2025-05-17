@@ -47,7 +47,7 @@ impl AccessControlCondition {
     }
 
     /// Check if the auth info satisfies the conditions
-    pub fn check(&self, auth_info: &AuthInfo) -> bool {
+    pub fn check(&self, auth_info: Option<&AuthInfo>) -> bool {
         match self.mode {
             ConditionMode::All => self.conditions.iter().all(|c| c.check(auth_info)),
             ConditionMode::Any => self.conditions.iter().any(|c| c.check(auth_info)),
@@ -62,12 +62,15 @@ impl AccessControlCondition {
 
 impl AccessControlCheck {
     /// Check if the auth info satisfies this condition
-    fn check(&self, auth_info: &AuthInfo) -> bool {
+    fn check(&self, auth_info: Option<&AuthInfo>) -> bool {
         match self {
             Self::Simple(control) => match control {
-                AccessControl::Role(role) => auth_info.has_role(role),
-                AccessControl::Permission(permission) => auth_info.has_permission(permission),
+                AccessControl::Role(role) => auth_info.is_some_and(|info| info.has_role(role)),
+                AccessControl::Permission(permission) => {
+                    auth_info.is_some_and(|info| info.has_permission(permission))
+                }
                 AccessControl::Function(AccessControlFunction(f)) => f(auth_info),
+                AccessControl::Guest => auth_info.is_none(),
             },
             Self::Nested(condition) => condition.check(auth_info),
         }
