@@ -9,7 +9,8 @@ use actix_web::{
 use app_errors::{AppError, UserError};
 use chrono::Utc;
 use entity::{
-    auth_tokens, links::UserRoleToPermission, sea_orm_active_enums::TokenType, user_role, users,
+    auth_tokens, links::UserToPermissionsOfRole, permissions, roles,
+    sea_orm_active_enums::TokenType, users,
 };
 use sea_orm::{ColumnTrait, Condition, EntityTrait, QueryFilter};
 
@@ -26,7 +27,6 @@ pub async fn auth_middleware_global(
     req: ServiceRequest,
     next: Next<impl MessageBody>,
 ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
-    tracing::info!(">>> Auth middleware global");
     if let Some(Ok(auth_header)) = req.headers().get("Authorization").map(|val| val.to_str()) {
         if let Some(token) = auth_header.strip_prefix("Bearer ") {
             let db = &persistence_state.db;
@@ -49,13 +49,53 @@ pub async fn auth_middleware_global(
                 .map_err(Into::<UserError>::into)?;
 
             if let Some((auth_token, Some(user))) = auth_token {
-                let roles = user_role::Entity::find()
-                    .filter(user_role::Column::UserId.eq(user.id))
-                    .find_with_linked(UserRoleToPermission)
+                let roles: Vec<String> = users::Entity::find()
+                    .filter(users::Column::Id.eq(user.id))
+                    .find_with_related(roles::Entity)
                     .all(db)
                     .await
                     .map_err(AppError::DbErr)
-                    .map_err(Into::<UserError>::into)?;
+                    .map_err(Into::<UserError>::into)?
+                    .into_iter()
+                    .flat_map(|role_user| role_user.1)
+                    .map(|role| role.name)
+                    .collect();
+
+                let permissions_of_roles: Vec<String> = users::Entity::find()
+                    .filter(users::Column::Id.eq(user.id))
+                    .find_with_linked(UserToPermissionsOfRole)
+                    .all(db)
+                    .await
+                    .map_err(AppError::DbErr)
+                    .map_err(Into::<UserError>::into)?
+                    .into_iter()
+                    .flat_map(|p| p.1)
+                    .map(|p| p.name)
+                    .collect();
+
+                let permissions_of_users: Vec<String> = users::Entity::find()
+                    .filter(users::Column::Id.eq(user.id))
+                    .find_with_related(permissions::Entity)
+                    .all(db)
+                    .await
+                    .map_err(AppError::DbErr)
+                    .map_err(Into::<UserError>::into)?
+                    .into_iter()
+                    .flat_map(|p| p.1)
+                    .map(|p| p.name)
+                    .collect();
+
+                let mut permissions = permissions_of_roles;
+                permissions.extend(permissions_of_users);
+
+                let permissions = permissions.into_iter().fold(Vec::new(), |mut acc, x| {
+                    if acc.contains(&x) {
+                        return acc;
+                    }
+
+                    acc.push(x);
+                    acc
+                });
 
                 let auth_info = AuthInfo {
                     access_token: auth_token.token,
@@ -64,8 +104,8 @@ pub async fn auth_middleware_global(
                     name: user.name,
                     status: user.status,
                     email_verified_at: user.email_verified_at.map(Into::into),
-                    roles: vec![],
-                    permissions: vec![],
+                    roles,
+                    permissions,
                 };
 
                 req.extensions_mut().insert(auth_info);

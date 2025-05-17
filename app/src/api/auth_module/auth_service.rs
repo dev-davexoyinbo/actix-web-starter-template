@@ -276,11 +276,11 @@ impl AuthService {
         }
     } // end function
 
-    #[instrument]
-    pub async fn me(account_id: i64) -> Result<UserMeResponseDto, Error> {
+    #[instrument(skip_all)]
+    pub async fn me(user_id: i64) -> Result<UserMeResponseDto, Error> {
         let persistence_state = persistence_state::get()?;
         let db = &persistence_state.db;
-        let user = users::Entity::find_by_id(account_id)
+        let user = users::Entity::find_by_id(user_id)
             .one(db)
             .await
             .map_err(AppError::DbErr)?;
@@ -301,7 +301,7 @@ impl AuthService {
         })
     }
 
-    #[instrument]
+    #[instrument(skip_all)]
     pub async fn resend_verification_email(
         dto: ResendVerificationEmailRequestDto,
     ) -> Result<(), Error> {

@@ -31,7 +31,7 @@ pub async fn register(
     Ok(res)
 } // end function register
 
-#[instrument]
+#[instrument(skip_all)]
 pub async fn login(dto: Json<LoginRequestDto>) -> Result<impl Responder, UserError> {
     dto.validate()?;
 
@@ -41,6 +41,7 @@ pub async fn login(dto: Json<LoginRequestDto>) -> Result<impl Responder, UserErr
     Ok(HttpResponse::Created().json(res))
 } // end function login
 
+#[instrument(skip_all)]
 pub async fn me(
     auth_info: AuthExtractor,
 ) -> Result<web::Json<ResponseDto<UserMeResponseDto>>, UserError> {
@@ -51,6 +52,7 @@ pub async fn me(
     Ok(web::Json(ResponseDto::new("".to_string(), dto)))
 }
 
+#[instrument(skip_all)]
 pub async fn verify_email(
     dto: web::Json<VerifyEmailRequestDto>,
 ) -> Result<impl Responder, UserError> {
@@ -63,6 +65,7 @@ pub async fn verify_email(
     Ok(web::Json(res))
 } // end function verify_email
 
+#[instrument(skip_all)]
 pub async fn resend_verification_email(
     dto: web::Json<ResendVerificationEmailRequestDto>,
 ) -> Result<impl Responder, UserError> {
