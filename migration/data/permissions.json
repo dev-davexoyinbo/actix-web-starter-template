@@ -1,0 +1,42 @@
+[
+  {
+    "name": "blog:read",
+    "description": "Permission to read blog posts"
+  },
+  {
+    "name": "blog:write",
+    "description": "Permission to create and edit blog posts"
+  },
+  {
+    "name": "blog:delete",
+    "description": "Permission to delete blog posts"
+  },
+  {
+    "name": "user:manage",
+    "description": "Permission to manage user accounts"
+  },
+  {
+    "name": "settings:update",
+    "description": "Permission to update application settings"
+  },
+  {
+    "name": "comments:read",
+    "description": "Permission to read comments"
+  },
+  {
+    "name": "comments:write",
+    "description": "Permission to add or edit comments"
+  },
+  {
+    "name": "comments:delete",
+    "description": "Permission to delete comments"
+  },
+  {
+    "name": "analytics:view",
+    "description": "Permission to view analytics data"
+  },
+  {
+    "name": "notifications:manage",
+    "description": "Permission to manage notifications"
+  }
+]

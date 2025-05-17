@@ -1,0 +1,38 @@
+[
+  {
+    "role": "admin",
+    "permissions": [
+      "blog:read",
+      "blog:write",
+      "blog:delete",
+      "user:manage",
+      "settings:update",
+      "comments:read",
+      "comments:write",
+      "comments:delete",
+      "analytics:view",
+      "notifications:manage"
+    ]
+  },
+  {
+    "role": "editor",
+    "permissions": [
+      "blog:read",
+      "blog:write",
+      "comments:read",
+      "comments:write"
+    ]
+  },
+  {
+    "role": "moderator",
+    "permissions": ["comments:read", "comments:delete", "notifications:manage"]
+  },
+  {
+    "role": "viewer",
+    "permissions": ["blog:read", "comments:read", "analytics:view"]
+  },
+  {
+    "role": "user",
+    "permissions": ["blog:read", "comments:read", "comments:write"]
+  }
+]

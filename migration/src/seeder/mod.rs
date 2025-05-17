@@ -1,6 +1,7 @@
 use role_seeder::RoleSeeder;
 use sea_orm_migration::{MigrationName, MigrationTrait};
 
+mod permission_seeder;
 mod role_seeder;
 
 pub struct Seeder;
