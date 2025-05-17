@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "name": "Alice Johnson",
+    "email": "alice.johnson@example.com",
+    "roles": ["admin"],
+    "permissions": [],
+    "password_env": "ADMIN_PASSWORD"
+  },
+  {
+    "id": 2,
+    "name": "Bob Smith",
+    "email": "bob.smith@example.com",
+    "roles": ["editor"],
+    "permissions": ["settings:update"],
+    "password": "editorpassword123"
+  },
+  {
+    "id": 3,
+    "name": "Charlie Brown",
+    "email": "charlie.brown@example.com",
+    "roles": ["moderator"],
+    "permissions": ["blog:write"],
+    "password": "moderatorpassword456"
+  },
+  {
+    "id": 4,
+    "name": "Diana Prince",
+    "email": "diana.prince@example.com",
+    "roles": ["viewer"],
+    "permissions": ["comments:delete"],
+    "password": "viewerpassword789"
+  },
+  {
+    "id": 5,
+    "name": "Eve Adams",
+    "email": "eve.adams@example.com",
+    "roles": ["user", "viewer"],
+    "permissions": ["notifications:manage"],
+    "password": "userpassword101"
+  }
+]

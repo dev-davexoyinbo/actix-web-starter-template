@@ -16,7 +16,7 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(UserPermission::Table)
                     .if_not_exists()
-                    .col(integer(UserPermission::UserId))
+                    .col(big_integer(UserPermission::UserId))
                     .col(integer(UserPermission::PermissionId))
                     .primary_key(
                         Index::create()

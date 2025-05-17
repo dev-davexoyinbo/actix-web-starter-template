@@ -15,7 +15,7 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(UserRole::Table)
                     .if_not_exists()
-                    .col(integer(UserRole::UserId))
+                    .col(big_integer(UserRole::UserId))
                     .col(integer(UserRole::RoleId))
                     .primary_key(Index::create().col(UserRole::UserId).col(UserRole::RoleId))
                     .foreign_key(
