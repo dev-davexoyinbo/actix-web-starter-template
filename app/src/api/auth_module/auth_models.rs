@@ -9,4 +9,6 @@ pub struct AuthInfo {
     pub name: String,
     pub status: UserStatus,
     pub email_verified_at: Option<DateTime<Utc>>,
+    pub permissions: Vec<String>,
+    pub roles: Vec<String>,
 }

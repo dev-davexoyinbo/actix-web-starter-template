@@ -8,7 +8,7 @@ use actix_web::{
 };
 use app_errors::{AppError, UserError};
 use chrono::Utc;
-use entity::{auth_tokens, sea_orm_active_enums::TokenType, users};
+use entity::{auth_tokens, roles, sea_orm_active_enums::TokenType, users};
 use sea_orm::{ColumnTrait, Condition, EntityTrait, QueryFilter};
 
 use crate::{
@@ -54,6 +54,8 @@ pub async fn auth_middleware_global(
                     name: user.name,
                     status: user.status,
                     email_verified_at: user.email_verified_at.map(Into::into),
+                    roles: vec![],
+                    permissions: vec![],
                 };
 
                 req.extensions_mut().insert(auth_info);
