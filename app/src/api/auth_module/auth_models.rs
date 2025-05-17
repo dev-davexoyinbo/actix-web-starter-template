@@ -12,3 +12,13 @@ pub struct AuthInfo {
     pub permissions: Vec<String>,
     pub roles: Vec<String>,
 }
+
+impl AuthInfo {
+    pub fn has_role(&self, role: &str) -> bool {
+        self.roles.iter().any(|r| r == role)
+    }
+
+    pub fn has_permission(&self, permission: &str) -> bool {
+        self.permissions.iter().any(|p| p == permission)
+    }
+}

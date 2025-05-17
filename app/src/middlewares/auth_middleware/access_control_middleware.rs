@@ -8,11 +8,21 @@ use futures_util::future::LocalBoxFuture;
 
 use crate::api::auth_module::auth_models::AuthInfo;
 
+use super::AccessControlCondition;
+
 // There are two steps in middleware processing.
 // 1. Middleware initialization, middleware factory gets called with
 //    next service in chain as parameter.
 // 2. Middleware's call method gets called with normal request.
-pub struct AccessControlMiddlewareInitializer;
+pub struct AccessControlMiddlewareInitializer {
+    pub condition: AccessControlCondition,
+}
+
+impl From<AccessControlCondition> for AccessControlMiddlewareInitializer {
+    fn from(condition: AccessControlCondition) -> Self {
+        condition.into_middleware()
+    }
+}
 
 // Middleware factory is `Transform` trait
 // `S` - type of the next service
@@ -30,12 +40,16 @@ where
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
     fn new_transform(&self, service: S) -> Self::Future {
-        ready(Ok(AccessControlMiddleware { service }))
+        ready(Ok(AccessControlMiddleware {
+            service,
+            condition: self.condition.clone(),
+        }))
     }
 }
 
 pub struct AccessControlMiddleware<S> {
     service: S,
+    condition: AccessControlCondition,
 }
 
 impl<S, B> Service<ServiceRequest> for AccessControlMiddleware<S>
