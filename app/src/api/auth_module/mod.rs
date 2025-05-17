@@ -1,3 +1,5 @@
+mod access_control_test_dtos;
+mod access_control_test_handlers;
 mod auth_dtos;
 pub mod auth_extractors;
 pub mod auth_models;
@@ -7,6 +9,7 @@ mod handlers;
 use actix_web::web::{self, ServiceConfig};
 
 pub fn scoped_config(config: &mut ServiceConfig) {
+    // Standard authentication routes
     config.service(
         web::scope("/auth")
             .route("register", web::post().to(handlers::register))
@@ -18,4 +21,7 @@ pub fn scoped_config(config: &mut ServiceConfig) {
                 web::post().to(handlers::resend_verification_email),
             ),
     );
+
+    // Example files for access control.
+    access_control_test_handlers::configure_access_control_routes(config);
 } // end function scoped_config
