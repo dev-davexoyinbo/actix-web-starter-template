@@ -51,7 +51,7 @@ where
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
-        let auth_info = req.extensions().get::<AuthInfo>();
+        let auth_info = req.extensions().get::<AuthInfo>().cloned();
 
         println!("Hi from start. You requested: {}", req.path());
 
