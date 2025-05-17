@@ -11,9 +11,13 @@ use chrono::Utc;
 use entity::{auth_tokens, sea_orm_active_enums::TokenType, users};
 use sea_orm::{ColumnTrait, Condition, EntityTrait, QueryFilter};
 
-use crate::{api::auth_module::auth_models::AuthInfo, persistence_state::PersistenceState};
-
-use super::auth_extractors::{AuthExtractor, MaybeAuthExtractor};
+use crate::{
+    api::auth_module::{
+        auth_extractors::{AuthExtractor, MaybeAuthExtractor},
+        auth_models::AuthInfo,
+    },
+    persistence_state::PersistenceState,
+};
 
 pub async fn auth_middleware_global(
     persistence_state: web::Data<PersistenceState>,
@@ -59,7 +63,7 @@ pub async fn auth_middleware_global(
 
     next.call(req).await
 } // end function auth_middleware_global
-//
+
 pub async fn require_auth_middleware(
     _auth_info: AuthExtractor,
     req: ServiceRequest,

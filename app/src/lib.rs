@@ -3,6 +3,7 @@ mod app_config;
 mod cron_jobs;
 mod globals;
 mod handlers;
+mod middlewares;
 mod persistence_state;
 mod telemetry;
 
@@ -14,12 +15,12 @@ use actix_web::{
     middleware::{NormalizePath, TrailingSlash, from_fn},
     web,
 };
-use api::auth_module::auth_middleware::auth_middleware_global;
 use app_errors::{AppError, UserError};
 use common::AppConfig;
 use cron_jobs::CronJob;
 use handlers::health_check;
 use messaging::MessagingClient;
+use middlewares::auth_middleware::auth_middleware_global;
 use persistence_state::PersistenceState;
 use tokio::sync::RwLock;
 use tracing_actix_web::TracingLogger;

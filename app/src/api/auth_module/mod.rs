@@ -1,6 +1,5 @@
 mod auth_dtos;
 pub mod auth_extractors;
-pub mod auth_middleware;
 pub mod auth_models;
 mod auth_service;
 mod handlers;
