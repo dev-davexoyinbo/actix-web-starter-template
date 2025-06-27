@@ -26,7 +26,7 @@ impl MigrationTrait for Migration {
                     .if_not_exists()
                     .col(big_integer(UserTable::Id).auto_increment().primary_key())
                     .col(string(UserTable::Name))
-                    .col(string(UserTable::Email))
+                    .col(string(UserTable::Email).unique_key())
                     .col(
                         enumeration(UserTable::Status, UserStatus, UserStatusVariants::iter())
                             .default("active"),

@@ -3,7 +3,7 @@ use entity::{permissions, roles, user_permission, user_role, users};
 use sea_orm_migration::{
     sea_orm::{
         sqlx::types::chrono::Utc, ActiveValue::Set, ColumnTrait, DeriveMigrationName, EntityTrait,
-        QueryFilter, TransactionTrait,
+        QueryFilter, TransactionTrait, Statement, DatabaseBackend, ConnectionTrait,
     },
     DbErr, MigrationTrait,
 };
@@ -136,6 +136,9 @@ impl MigrationTrait for UserSeeder {
             .exec(&tx)
             .await?;
 
+        // Reset sequences after inserting seeded data
+        Self::reset_sequences(&tx).await?;
+
         tx.commit().await?;
 
         Ok(())
@@ -145,6 +148,41 @@ impl MigrationTrait for UserSeeder {
         &self,
         _manager: &sea_orm_migration::SchemaManager,
     ) -> Result<(), sea_orm_migration::DbErr> {
+        Ok(())
+    }
+}
+
+impl UserSeeder {    /// Reset database sequences to prevent primary key conflicts
+    async fn reset_sequences(
+        db: &sea_orm_migration::sea_orm::DatabaseTransaction,
+    ) -> Result<(), DbErr> {
+        // List of sequences to reset
+        let sequences = vec![
+            ("users_id_seq", "users"),
+            ("roles_id_seq", "roles"),
+            ("permissions_id_seq", "permissions"),
+            ("auth_tokens_id_seq", "auth_tokens"),
+        ];
+
+        for (sequence_name, table_name) in sequences {
+            let sql = format!(
+                "SELECT setval('{}', COALESCE((SELECT MAX(id) FROM {}), 1))",
+                sequence_name, table_name
+            );
+
+            let statement = Statement::from_string(DatabaseBackend::Postgres, sql);
+            
+            db.execute(statement)
+                .await
+                .map_err(|err| {
+                    DbErr::Custom(format!(
+                        "Failed to reset sequence '{}': {}",
+                        sequence_name, err
+                    ))
+                })?;
+        }
+
+        println!("Database sequences reset successfully");
         Ok(())
     }
 }
